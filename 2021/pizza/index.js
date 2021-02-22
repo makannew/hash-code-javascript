@@ -9,62 +9,93 @@
  * @ since 2021
  *
  */
-let fs = require("fs");
-let path = require("path");
-let inputBuffer = [];
-const nullFunc = () => null;
-let checkAvailableInput = nullFunc;
+const fs = require("fs");
+const path = require("path");
 const readlineModule = require("readline");
-const outputFile = fs.createWriteStream("result", {
-  flags: "w",
-});
 
-function arrayToFile(data) {
-  lineToFile(data.join(" "));
-}
-
-function lineToFile(data) {
-  outputFile.write(data);
-  outputFile.write("\n");
-}
-
-function syncWithInput(readlineModule, input) {
-  inputBuffer = [];
-  const readInputLine = readlineModule.createInterface({
-    input,
-  });
-  readInputLine.on("line", (input) => {
-    const lines = input.split("/n");
-    lines.forEach((line) => inputBuffer.push(line.trim()));
-    checkAvailableInput();
-  });
-}
-
-async function readLine() {
-  return new Promise((resolve, reject) => {
-    checkAvailableInput = () => {
-      if (inputBuffer.length > 0) {
-        checkAvailableInput = nullFunc;
-        resolve(inputBuffer.shift());
-      }
-    };
-    checkAvailableInput();
-  });
-}
-
-async function readArray() {
-  const newLine = await readLine();
-  const inputArray = newLine.split(" ");
-  return inputArray;
-}
-
-async function readIntArray() {
-  const data = await readArray();
-  for (let i in data) {
-    data[i] = parseInt(data[i], 10);
+class InputStream {
+  constructor(inputSrc) {
+    if (!inputSrc) {
+      this.inputSrc = process.stdin;
+    } else {
+      const srcFilePath = path.join(__dirname, inputSrc);
+      this.inputSrc = fs.createReadStream(srcFilePath);
+    }
+    this.syncWithInput(readlineModule);
   }
-  return data;
+  inputBuffer = [];
+  inputSrc;
+  nullFunc = () => null;
+  checkAvailableInput = this.nullFunc;
+
+  syncWithInput(readlineModule) {
+    this.inputBuffer = [];
+    const readInputLine = readlineModule.createInterface({
+      input: this.inputSrc,
+    });
+    readInputLine.on("line", (input) => {
+      const lines = input.split("/n");
+      lines.forEach((line) => this.inputBuffer.push(line.trim()));
+      this.checkAvailableInput();
+    });
+  }
+
+  async readLine() {
+    return new Promise((resolve) => {
+      this.checkAvailableInput = () => {
+        if (this.inputBuffer.length > 0) {
+          this.checkAvailableInput = this.nullFunc;
+          resolve(this.inputBuffer.shift());
+        }
+      };
+      this.checkAvailableInput();
+    });
+  }
+
+  async readArray() {
+    const newLine = await this.readLine();
+    const inputArray = newLine.split(" ");
+    return inputArray;
+  }
+
+  async readIntArray() {
+    const data = await this.readArray();
+    for (let i in data) {
+      data[i] = parseInt(data[i], 10);
+    }
+    return data;
+  }
 }
+
+class OutputStream {
+  constructor(filename) {
+    this.outputFile = fs.createWriteStream(filename, {
+      flags: "w",
+    });
+  }
+
+  outputFile;
+  resolvePromise = () => null;
+
+  arrayToFile(data) {
+    lineToFile(data.join(" "));
+  }
+
+  lineToFile(data) {
+    this.outputFile.write(data);
+    this.outputFile.write("\n");
+  }
+
+  async finish() {
+    const resolvablePromise = new Promise((resolve) => {
+      this.resolvePromise = () => resolve();
+    });
+    this.outputFile.on("finish", this.resolvePromise);
+    this.outputFile.end();
+    return resolvablePromise;
+  }
+}
+
 // kick-start-helpers webassembly module
 // Automatically generated at Tue Sep 29 2020 15:48:19 GMT+0800 (Australian Western Standard Time)
 const wasmString =
@@ -77,20 +108,15 @@ const { mulMod, expMod, divMod, intDiv } = wasm.exports;
 // Start
 //
 (async function main() {
-  console.log("\x1b[32mEnter source file name:\x1b[33m");
-  syncWithInput(readlineModule, process.stdin);
-  const resultFileName = "result";
-  const srcFile = await readLine();
-  console.log(`\x1b[32mResult will be saved in \x1b[37m${resultFileName}`);
-  console.log("\r\n");
-  const filePath = path.join(__dirname, srcFile);
-  syncWithInput(readlineModule, fs.createReadStream(filePath));
-  // Start
-  let data = await readArray();
-  arrayToFile(data);
-  data = await readArray();
-  arrayToFile(data);
-
-  outputFile.on("finish", () => process.exit());
-  outputFile.end();
+  const [node, indexJs, srcFile, resultFile] = process.argv;
+  const cmdLine = new InputStream();
+  console.log("\x1b[32mEnter some text to add to source file:\x1b[33m");
+  const content = await cmdLine.readLine();
+  const srcStream = new InputStream(srcFile);
+  const result = new OutputStream(resultFile);
+  const srcData = await srcStream.readLine();
+  result.lineToFile(content);
+  result.lineToFile(srcData);
+  await result.finish();
+  process.exit();
 })().catch((err) => console.log(err));
