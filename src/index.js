@@ -110,13 +110,17 @@ const { mulMod, expMod, divMod, intDiv } = wasm.exports;
 (async function main() {
   const [node, indexJs, srcFile, resultFile] = process.argv;
   const cmdLine = new InputStream();
-  console.log("\x1b[32mEnter some text to add to source file:\x1b[33m");
+  console.log(
+    "\x1b[32mS for save the result and Q for exit without saving\x1b[33m"
+  );
   const content = await cmdLine.readLine();
   const srcStream = new InputStream(srcFile);
-  const result = new OutputStream(resultFile);
+  const resultStream = new OutputStream(
+    resultFile ? resultFile : `${srcFile}.res`
+  );
   const srcData = await srcStream.readLine();
-  result.lineToFile(content);
-  result.lineToFile(srcData);
-  await result.finish();
+  resultStream.lineToFile(content);
+  resultStream.lineToFile(srcData);
+  await resultStream.finish();
   process.exit();
 })().catch((err) => console.log(err));

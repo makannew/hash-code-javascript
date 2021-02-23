@@ -110,13 +110,81 @@ const { mulMod, expMod, divMod, intDiv } = wasm.exports;
 (async function main() {
   const [node, indexJs, srcFile, resultFile] = process.argv;
   const cmdLine = new InputStream();
-  console.log("\x1b[32mEnter some text to add to source file:\x1b[33m");
-  const content = await cmdLine.readLine();
+  console.log(
+    "\x1b[32mS for save the result and Q for exit without saving\x1b[33m"
+  );
   const srcStream = new InputStream(srcFile);
-  const result = new OutputStream(resultFile);
-  const srcData = await srcStream.readLine();
-  result.lineToFile(content);
-  result.lineToFile(srcData);
-  await result.finish();
+  const resultStream = new OutputStream(
+    resultFile ? resultFile : `${srcFile}.res`
+  );
+
+  const [pizzas, teamTwo, teamThree, teamFour] = await srcStream.readIntArray();
+  const pizzaData = [];
+  const ingredData = [];
+  for (let P = 0; P < pizzas; ++P) {
+    const [numberOfIngredients, ...ingredients] = await srcStream.readArray();
+    const thisPizza = [];
+    for (let ingred of ingredients) {
+      const index = ingredData.indexOf(ingred);
+      if (index === -1) {
+        thisPizza.push(ingredData.push(ingred) - 1);
+      } else {
+        thisPizza.push(index);
+      }
+    }
+    pizzaData.push(thisPizza);
+  }
+  const data = [];
+  let pIdx = 0;
+  const pLen = pizzaData.length;
+  for (let i = 0; i < teamTwo; ++i) {
+    const pizzas = [];
+    for (j = 0; j < 2; ++j) {
+      if (pIdx < pLen) {
+        pizzas.push(pIdx);
+        ++pIdx;
+      }
+    }
+    data.push({ team: 2, pizzas });
+  }
+  for (let i = 0; i < teamThree; ++i) {
+    const pizzas = [];
+    for (j = 0; j < 3; ++j) {
+      if (pIdx < pLen) {
+        pizzas.push(pIdx);
+        ++pIdx;
+      }
+    }
+    data.push({ team: 3, pizzas });
+  }
+  for (let i = 0; i < teamFour; ++i) {
+    const pizzas = [];
+    for (j = 0; j < 4; ++j) {
+      if (pIdx < pLen) {
+        pizzas.push(pIdx);
+        ++pIdx;
+      }
+    }
+    data.push({ team: 4, pizzas });
+  }
+  //
+  for (let d of data) {
+    d.score = getScore(d);
+  }
+  //
+  function getScore(d) {
+    if (d.team !== d.pizzas.length) {
+      return -1;
+    }
+    const uIngred = new Set();
+    for (let p of d.pizzas) {
+      pizzaData[p].forEach((ingred) => uIngred.add(ingred));
+    }
+    return uIngred.size * uIngred.size;
+  }
+  console.log(data);
+  // resultStream.lineToFile(content);
+  // resultStream.lineToFile(srcData);
+  await resultStream.finish();
   process.exit();
 })().catch((err) => console.log(err));
