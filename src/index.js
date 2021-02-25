@@ -78,7 +78,7 @@ class OutputStream {
   resolvePromise = () => null;
 
   arrayToFile(data) {
-    lineToFile(data.join(" "));
+    this.lineToFile(data.join(" "));
   }
 
   lineToFile(data) {
@@ -113,14 +113,57 @@ const { mulMod, expMod, divMod, intDiv } = wasm.exports;
   console.log(
     "\x1b[32mS for save the result and Q for exit without saving\x1b[33m"
   );
-  const content = await cmdLine.readLine();
   const srcStream = new InputStream(srcFile);
-  const resultStream = new OutputStream(
-    resultFile ? resultFile : `${srcFile}.res`
-  );
-  const srcData = await srcStream.readLine();
-  resultStream.lineToFile(content);
-  resultStream.lineToFile(srcData);
-  await resultStream.finish();
+  let resultStream;
+  const [readData] = await srcStream.readIntArray();
+
+  // task loop
+  // q(Enter) for quit without save and any other keys(Enter) save the data
+  function taskLoop() {
+    //
+    // Loop computation tasks
+    //
+  }
+  // put save logic here
+  function saveData() {
+    for (let i = 0; i < data.length; ++i) {
+      resultStream.arrayToFile([data[i].score]);
+    }
+  }
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  let exitTheProgram = false;
+  function taskLoopParent() {
+    taskLoop();
+    if (!exitTheProgram) {
+      setTimeout(taskLoopParent, 0);
+    }
+  }
+  taskLoopParent();
+  //
+  async function saveToResultFile() {
+    console.log("start saving");
+    resultStream = new OutputStream(resultFile ? resultFile : `${srcFile}.res`);
+    saveData();
+    await resultStream.finish();
+    console.log("finished");
+  }
+  //
+  async function waitForKey() {
+    const enteredKey = await cmdLine.readLine();
+    if (enteredKey == "q") {
+      exitTheProgram = true;
+    } else {
+      await saveToResultFile();
+      await waitForKey();
+    }
+  }
+  await waitForKey();
   process.exit();
 })().catch((err) => console.log(err));
