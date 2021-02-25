@@ -179,15 +179,29 @@ const { mulMod, expMod, divMod, intDiv } = wasm.exports;
     }
     return uIngred.size * uIngred.size;
   }
-  //
 
+  // task loop
+  // q(Enter) for quit without save and any other keys(Enter) save the data
+  let cnt = 0;
+  function taskLoop() {
+    console.log(cnt++);
+  }
   // put save logic here
   function saveData() {
     for (let i = 0; i < data.length; ++i) {
       resultStream.arrayToFile([data[i].score]);
     }
   }
-  // q for quit without save and any other keys save the data
+  //
+  let exitTheProgram = false;
+  function taskLoopParent() {
+    taskLoop();
+    if (!exitTheProgram) {
+      setTimeout(taskLoopParent, 0);
+    }
+  }
+  taskLoopParent();
+
   async function saveToResultFile() {
     console.log("start saving");
     resultStream = new OutputStream(resultFile ? resultFile : `${srcFile}.res`);
@@ -198,7 +212,9 @@ const { mulMod, expMod, divMod, intDiv } = wasm.exports;
   //
   async function waitForKey() {
     const enteredKey = await cmdLine.readLine();
-    if (enteredKey != "q") {
+    if (enteredKey == "q") {
+      exitTheProgram = true;
+    } else {
       await saveToResultFile();
       await waitForKey();
     }
